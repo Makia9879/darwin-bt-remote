@@ -551,6 +551,17 @@
         }
       }
     },
+    "direct_input.capturing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending input"
+          }
+        }
+      }
+    },
     "direct_input.connected_prompt_message": {
       "extractionState": "manual",
       "localizations": {
@@ -650,6 +661,17 @@
         }
       }
     },
+    "direct_input.toggle_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forwards this Mac's keyboard, mouse, and trackpad to the target."
+          }
+        }
+      }
+    },
     "keyboard.alt": {
       "extractionState": "manual",
       "localizations": {
@@ -672,17 +694,6 @@
         }
       }
     },
-    "keyboard.backspace": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Backspace"
-          }
-        }
-      }
-    },
     "keyboard.arrows": {
       "extractionState": "manual",
       "localizations": {
@@ -690,6 +701,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arrow keys"
+          }
+        }
+      }
+    },
+    "keyboard.backspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backspace"
           }
         }
       }
@@ -980,6 +1002,17 @@
         }
       }
     },
+    "mouse.app_windows": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Windows"
+          }
+        }
+      }
+    },
     "mouse.button.left": {
       "extractionState": "manual",
       "localizations": {
@@ -1009,6 +1042,61 @@
           "stringUnit": {
             "state": "translated",
             "value": "Right"
+          }
+        }
+      }
+    },
+    "mouse.desktop_left": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desktop left"
+          }
+        }
+      }
+    },
+    "mouse.desktop_right": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desktop right"
+          }
+        }
+      }
+    },
+    "mouse.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag to move, scroll with two fingers, click for a left click."
+          }
+        }
+      }
+    },
+    "mouse.mission_control": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mission Control"
+          }
+        }
+      }
+    },
+    "mouse.shortcuts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System shortcuts"
           }
         }
       }
@@ -1119,6 +1207,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Menu"
+          }
+        }
+      }
+    },
+    "remote.mode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode"
           }
         }
       }
@@ -1442,6 +1541,28 @@
         }
       }
     },
+    "setup.advertised_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advertised Name"
+          }
+        }
+      }
+    },
+    "setup.advertised_name_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The name other devices see. For best compatibility, keep it to 8 characters or fewer."
+          }
+        }
+      }
+    },
     "setup.bluetooth_off_message": {
       "extractionState": "manual",
       "localizations": {
@@ -1519,39 +1640,6 @@
         }
       }
     },
-    "setup.advertised_name": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Advertised Name"
-          }
-        }
-      }
-    },
-    "setup.advertised_name_hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The name other devices see. For best compatibility, keep it to 8 characters or fewer."
-          }
-        }
-      }
-    },
-    "setup.device_name_limitation": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Due to platform limitations, the name of the target device cannot be displayed unless it has previously been paired with this device."
-          }
-        }
-      }
-    },
     "setup.connect_from_target_device": {
       "extractionState": "manual",
       "localizations": {
@@ -1570,6 +1658,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connect from this application"
+          }
+        }
+      }
+    },
+    "setup.device_name_limitation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due to platform limitations, the name of the target device cannot be displayed unless it has previously been paired with this device."
           }
         }
       }
@@ -1882,6 +1981,17 @@
         }
       }
     },
+    "tab.trackpad": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trackpad"
+          }
+        }
+      }
+    },
     "transport_mode.classic": {
       "extractionState": "manual",
       "localizations": {
@@ -2021,17 +2131,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "View Guide"
-          }
-        }
-      }
-    },
-    "remote.mode": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mode"
           }
         }
       }

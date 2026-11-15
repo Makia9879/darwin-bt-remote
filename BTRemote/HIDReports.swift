@@ -5,6 +5,8 @@ struct MouseReport: Sendable, Equatable {
     var dX: Int8 = 0
     var dY: Int8 = 0
     var wheel: Int8 = 0
+    /// consumer AC Pan, positive pans right
+    var pan: Int8 = 0
 
     static let zero = MouseReport()
 
@@ -13,7 +15,8 @@ struct MouseReport: Sendable, Equatable {
             buttons.rawValue,
             UInt8(bitPattern: dX),
             UInt8(bitPattern: dY),
-            UInt8(bitPattern: wheel)
+            UInt8(bitPattern: wheel),
+            UInt8(bitPattern: pan)
         ])
     }
 }
@@ -93,10 +96,17 @@ enum Keycode: UInt8, Sendable, Equatable, Hashable {
     case capsLock = 0x39
     case f1 = 0x3A, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12
     case printScreen = 0x46
+    case insert = 0x49
+    case home = 0x4A
+    case pageUp = 0x4B
+    case deleteForward = 0x4C
+    case end = 0x4D
+    case pageDown = 0x4E
     case rightArrow = 0x4F
     case leftArrow = 0x50
     case downArrow = 0x51
     case upArrow = 0x52
+    case help = 0x75
 }
 
 struct SystemControlReport: Sendable, Equatable {

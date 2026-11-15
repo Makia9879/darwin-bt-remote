@@ -46,7 +46,20 @@ struct HIDInput {
     }
 
     func scroll(_ wheel: Int8) {
-        sendMouse(MouseReport(wheel: wheel))
+        scroll(dx: 0, dy: wheel)
+    }
+
+    func scroll(dx: Int8, dy: Int8) {
+        guard dx != 0 || dy != 0 else { return }
+        sendMouse(MouseReport(wheel: dy, pan: dx))
+        sendMouse(.zero)
+    }
+
+    func drag(_ buttons: MouseButtons = .left) {
+        sendMouse(MouseReport(buttons: buttons))
+    }
+
+    func releaseMouse() {
         sendMouse(.zero)
     }
 

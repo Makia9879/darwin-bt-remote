@@ -16,6 +16,7 @@
         private var pressedMouseButtons: MouseButtons = []
         private var modifiers: KeyboardModifiers = []
         private var cursorHidden = false
+        private var scrollWheel = ScrollWheelAccumulator()
 
         private var sendKeyboard: ((KeyboardReport) -> Void)?
         private var sendMouse: ((MouseReport) -> Void)?
@@ -39,6 +40,7 @@
             pressedMouseButtons = []
             modifiers = []
             lastError = nil
+            scrollWheel.reset()
 
             guard AccessibilityPermission.isTrusted else {
                 needsAccessibility = true
@@ -113,6 +115,7 @@
             pressedKeys.removeAll()
             pressedMouseButtons = []
             modifiers = []
+            scrollWheel.reset()
             sendKeyboard?(.zero)
             sendMouse?(.zero)
             clearHandlers()
@@ -181,8 +184,10 @@
                     pressedMouseButtons.remove(button)
                 }
                 sendMouse?(MouseReport(buttons: pressedMouseButtons))
-            case let .scroll(wheel):
-                sendMouse?(MouseReport(buttons: pressedMouseButtons, wheel: wheel))
+            case let .scroll(dx, dy, isPixel):
+                let steps = scrollWheel.steps(dx: dx, dy: dy, isPixel: isPixel)
+                guard steps.pan != 0 || steps.wheel != 0 else { return }
+                sendMouse?(MouseReport(buttons: pressedMouseButtons, wheel: steps.wheel, pan: steps.pan))
                 sendMouse?(MouseReport(buttons: pressedMouseButtons))
             }
         }
@@ -221,7 +226,7 @@
             case flagsChanged
             case mouseMove(Int8, Int8)
             case mouseButton(MouseButtons, Bool)
-            case scroll(Int8)
+            case scroll(CGFloat, CGFloat, Bool)
         }
 
         let kind: Kind
@@ -252,12 +257,19 @@
                 guard let button = Self.mouseButton(for: type) else { return nil }
                 kind = .mouseButton(button.0, button.1)
             case .scrollWheel:
-                let wheel = Self.clampInt8(event.getIntegerValueField(.scrollWheelEventDeltaAxis1))
-                guard wheel != 0 else { return nil }
-                kind = .scroll(wheel)
+                // continuous devices report pixels, a wheel reports lines
+                let isPixel = event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0
+                let dx = isPixel ? Self.scrollDelta(event, .scrollWheelEventPointDeltaAxis2) : Self.scrollDelta(event, .scrollWheelEventDeltaAxis2)
+                let dy = isPixel ? Self.scrollDelta(event, .scrollWheelEventPointDeltaAxis1) : Self.scrollDelta(event, .scrollWheelEventDeltaAxis1)
+                guard dx != 0 || dy != 0 else { return nil }
+                kind = .scroll(dx, dy, isPixel)
             default:
                 return nil
             }
+        }
+
+        private static func scrollDelta(_ event: CGEvent, _ field: CGEventField) -> CGFloat {
+            CGFloat(event.getIntegerValueField(field))
         }
 
         private static func clampInt8(_ value: Int64) -> Int8 {
@@ -307,7 +319,9 @@
             0x2B: .comma, 0x2F: .period, 0x2C: .slash, 0x39: .capsLock,
             0x7A: .f1, 0x78: .f2, 0x63: .f3, 0x76: .f4, 0x60: .f5, 0x61: .f6,
             0x62: .f7, 0x64: .f8, 0x65: .f9, 0x6D: .f10, 0x67: .f11, 0x6F: .f12,
-            0x7C: .rightArrow, 0x7B: .leftArrow, 0x7D: .downArrow, 0x7E: .upArrow
+            0x7C: .rightArrow, 0x7B: .leftArrow, 0x7D: .downArrow, 0x7E: .upArrow,
+            0x73: .home, 0x77: .end, 0x74: .pageUp, 0x79: .pageDown, 0x75: .deleteForward,
+            0x72: .help
         ]
     }
 
@@ -399,8 +413,8 @@
                 input?.middleButton?.pressedChangedHandler = { [weak self] _, _, pressed in
                     Task { @MainActor in self?.handleButton(.middle, pressed) }
                 }
-                input?.scroll.valueChangedHandler = { [weak self] _, _, y in
-                    Task { @MainActor in self?.handleScroll(y) }
+                input?.scroll.valueChangedHandler = { [weak self] _, x, y in
+                    Task { @MainActor in self?.handleScroll(x: x, y: y) }
                 }
             }
         }
@@ -450,10 +464,11 @@
             sendMouse?(MouseReport(buttons: pressedMouseButtons))
         }
 
-        private func handleScroll(_ y: Float) {
+        private func handleScroll(x: Float, y: Float) {
+            let pan = HIDInput.clamp(CGFloat(x) * Self.scrollSensitivity)
             let wheel = HIDInput.clamp(CGFloat(y) * Self.scrollSensitivity)
-            guard wheel != 0 else { return }
-            sendMouse?(MouseReport(buttons: pressedMouseButtons, wheel: wheel))
+            guard pan != 0 || wheel != 0 else { return }
+            sendMouse?(MouseReport(buttons: pressedMouseButtons, wheel: wheel, pan: pan))
             sendMouse?(MouseReport(buttons: pressedMouseButtons))
         }
 

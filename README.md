@@ -51,6 +51,16 @@ Both backends emit the same HID report descriptors, supporting HID usages for `m
 
 Check out [`build.sh`](build.sh) for development builds, or the [CI](.github/workflows/build.yml) for building with [`fastlane`](https://github.com/fastlane/fastlane).
 
+### macOS as controller
+
+On a Mac, the app can either be driven from the window or take over the whole machine:
+
+- **Direct Input** forwards this Mac's physical keyboard, mouse, and trackpad to the target Mac. While it is capturing, the local pointer is hidden and both machines see one input stream. Press `⌃ + ⌥` to release capture. The target needs no software, only a standard Bluetooth HID host.
+- **Trackpad** is the window-local surface: drag to move, scroll with two fingers, click for a left click, and use the separate left, middle, and right buttons. Its scroll wheel carries both vertical and horizontal movement.
+- **System shortcuts** are ordinary keyboard combinations on the target, so Mission Control (`⌃↑`), App Windows (`⌃↓`), and switching desktops (`⌃←`/`⌃→`) follow the target's own shortcut settings. They are not a native trackpad gesture stream.
+
+Scrolling relies on the mouse report descriptor, which gained a horizontal (AC Pan) byte. If a host that paired with an earlier build scrolls vertically only, remove the pairing on the target and pair again so the new report descriptor is read.
+
 ## Development
 
 This Bluetooth HID stack is manually developed over weeks of working around a list of undocumented platform behaviors to ensure it pairs and streams input fast and reliably on all OS versions above iOS 15 and macOS 13. Making changes to this stack is highly discouraged as it is likely to break SDP negotiation, GATT layout, or bonding handshake, with no clear error logs. Some key constraints to be aware of:

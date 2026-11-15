@@ -5,17 +5,10 @@ struct TrackpadPanel: View {
 
     @AppStorage(AppSettings.touchpadSensitivityKey) private var touchpadSensitivity = AppSettings.defaultPointerSensitivity
     @AppStorage(AppSettings.scrollSensitivityKey) private var scrollSensitivity = AppSettings.defaultScrollSensitivity
-    #if os(macOS)
-        @State private var dragOffset: CGSize = .zero
-    #endif
 
     var body: some View {
         VStack(spacing: cellGap) {
-            HStack(spacing: cellGap) {
-                surface
-                scrollColumn.frame(width: 46)
-            }
-            .frame(maxHeight: .infinity)
+            surface
             mouseButtonsRow.frame(height: 52)
         }
     }
@@ -32,36 +25,21 @@ struct TrackpadPanel: View {
                     onLeftClick: { Haptics.tap(); hid.click(.left) },
                     onRightClick: { Haptics.tap(); hid.click(.right) }
                 )
+            #elseif os(macOS)
+                TrackpadSurface(
+                    pointerGain: touchpadSensitivity / AppSettings.macPointerNeutral,
+                    scrollGain: scrollSensitivity,
+                    onPointer: { hid.move(dx: $0, dy: $1) },
+                    onScroll: { hid.scroll(dx: $0, dy: $1) },
+                    onLeftDown: { hid.drag(.left) },
+                    onLeftUp: { hid.releaseMouse() },
+                    onRightClick: { hid.click(.right) },
+                    onMiddleClick: { hid.click(.middle) }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #if os(macOS)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        let dx = HIDInput.clamp((value.translation.width - dragOffset.width) * touchpadSensitivity)
-                        let dy = HIDInput.clamp((value.translation.height - dragOffset.height) * touchpadSensitivity)
-                        dragOffset = value.translation
-                        hid.move(dx: dx, dy: dy)
-                    }
-                    .onEnded { _ in
-                        dragOffset = .zero
-                        hid.sendMouse(.zero)
-                    }
-            )
-        #endif
-    }
-
-    private var scrollAmount: Int8 {
-        max(1, HIDInput.clamp(CGFloat(3 * scrollSensitivity)))
-    }
-
-    private var scrollColumn: some View {
-        VStack(spacing: cellGap) {
-            scrollButton("arrow.up", L10n.Mouse.wheelUp, scrollAmount)
-            scrollButton("arrow.down", L10n.Mouse.wheelDown, -scrollAmount)
-        }
     }
 
     private var mouseButtonsRow: some View {
@@ -77,17 +55,7 @@ struct TrackpadPanel: View {
             onPress: { hid.sendMouse(MouseReport(buttons: button)) },
             onRelease: { hid.sendMouse(.zero) },
             background: { RoundedRectangle(cornerRadius: 12).fill(groupFill) },
-            label: { Color.clear }
-        )
-        .accessibilityLabel(label)
-    }
-
-    private func scrollButton(_ icon: String, _ label: LocalizedStringKey, _ wheel: Int8) -> some View {
-        HoldButton(
-            onPress: { hid.scroll(wheel) },
-            onRelease: {},
-            background: { RoundedRectangle(cornerRadius: 12).fill(groupFill) },
-            label: { Image(systemName: icon).font(.body) }
+            label: { Text(label).font(.caption) }
         )
         .accessibilityLabel(label)
     }

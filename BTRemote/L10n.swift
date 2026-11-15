@@ -13,6 +13,10 @@ enum L10n {
             "tab.remote"
         }
 
+        static var trackpad: LocalizedStringKey {
+            "tab.trackpad"
+        }
+
         static var keyboard: LocalizedStringKey {
             "tab.keyboard"
         }
@@ -403,6 +407,18 @@ extension L10n {
         static var connectedPromptMessage: LocalizedStringKey {
             "direct_input.connected_prompt_message"
         }
+
+        static var capturing: LocalizedStringKey {
+            "direct_input.capturing"
+        }
+
+        static var toggleHint: LocalizedStringKey {
+            "direct_input.toggle_hint"
+        }
+
+        static var captureFailed: LocalizedStringKey {
+            "direct_input.capture_failed"
+        }
     }
 
     enum Mouse {
@@ -424,6 +440,30 @@ extension L10n {
 
         static var wheelDown: LocalizedStringKey {
             "mouse.wheel.down"
+        }
+
+        static var hint: LocalizedStringKey {
+            "mouse.hint"
+        }
+
+        static var shortcuts: LocalizedStringKey {
+            "mouse.shortcuts"
+        }
+
+        static var missionControl: LocalizedStringKey {
+            "mouse.mission_control"
+        }
+
+        static var appWindows: LocalizedStringKey {
+            "mouse.app_windows"
+        }
+
+        static var desktopLeft: LocalizedStringKey {
+            "mouse.desktop_left"
+        }
+
+        static var desktopRight: LocalizedStringKey {
+            "mouse.desktop_right"
         }
     }
 

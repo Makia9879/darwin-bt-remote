@@ -33,7 +33,16 @@ struct SettingsView: View {
     private var form: some View {
         Form {
             Section(header: Text(L10n.Settings.trackpad)) {
-                sensitivityRow(L10n.Settings.trackingSpeed, value: $touchpadSensitivity, range: AppSettings.pointerSensitivityRange)
+                #if os(macOS)
+                    // trackpad deltas already carry the system acceleration, so one step is neutral here
+                    sensitivityRow(
+                        L10n.Settings.trackingSpeed,
+                        value: gainBinding($touchpadSensitivity, divisor: AppSettings.macPointerNeutral),
+                        range: 0.1 ... 2.0
+                    )
+                #else
+                    sensitivityRow(L10n.Settings.trackingSpeed, value: $touchpadSensitivity, range: AppSettings.pointerSensitivityRange)
+                #endif
                 sensitivityRow(L10n.Settings.scrollSpeed, value: $scrollSensitivity, range: AppSettings.scrollSensitivityRange)
             }
             #if os(iOS)
@@ -92,6 +101,13 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
+    }
+
+    private func gainBinding(_ source: Binding<Double>, divisor: Double) -> Binding<Double> {
+        Binding(
+            get: { source.wrappedValue / divisor },
+            set: { source.wrappedValue = $0 * divisor }
+        )
     }
 
     private func sensitivityRow(_ title: LocalizedStringKey, value: Binding<Double>, range: ClosedRange<Double>) -> some View {

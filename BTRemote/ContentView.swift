@@ -36,7 +36,13 @@ struct ContentView: View {
             .background(PointerLockHost(locked: directInput.isCapturing))
         #endif
             .onChange(of: hid.isConnected) { connected in
-                guard connected else { return }
+                guard connected else {
+                    #if os(macOS)
+                        // never leave the target holding keys or buttons
+                        if directInput.isCapturing { directInput.stop() }
+                    #endif
+                    return
+                }
                 #if os(macOS)
                     if !directInput.isCapturing { showConnectPrompt = true }
                 #else

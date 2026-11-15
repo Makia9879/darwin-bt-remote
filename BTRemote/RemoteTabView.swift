@@ -7,7 +7,11 @@ enum RemoteMode: String {
 struct RemoteTabView: View {
     let goToSetup: () -> Void
 
-    @AppStorage(AppSettings.remoteModeKey) private var mode = RemoteMode.keyboard
+    #if os(macOS)
+        @AppStorage(AppSettings.remoteModeKey) private var mode = RemoteMode.remote
+    #else
+        @AppStorage(AppSettings.remoteModeKey) private var mode = RemoteMode.keyboard
+    #endif
     @AppStorage(AppSettings.liveTypingKey) private var liveTyping = true
 
     var body: some View {
@@ -32,7 +36,12 @@ struct RemoteTabView: View {
     private var content: some View {
         switch mode {
         case .keyboard: KeyboardView(goToSetup: goToSetup)
-        case .remote: RemoteView(goToSetup: goToSetup)
+        case .remote:
+            #if os(macOS)
+                MacControlView(goToSetup: goToSetup)
+            #else
+                RemoteView(goToSetup: goToSetup)
+            #endif
         }
     }
 
@@ -42,7 +51,11 @@ struct RemoteTabView: View {
             Menu {
                 Picker(L10n.Remote.mode, selection: $mode) {
                     Label(L10n.Tab.keyboard, systemImage: "keyboard").tag(RemoteMode.keyboard)
-                    Label(L10n.Tab.remote, systemImage: "gamecontroller").tag(RemoteMode.remote)
+                    #if os(macOS)
+                        Label(L10n.Tab.trackpad, systemImage: "rectangle.and.hand.point.up.left").tag(RemoteMode.remote)
+                    #else
+                        Label(L10n.Tab.remote, systemImage: "gamecontroller").tag(RemoteMode.remote)
+                    #endif
                 }
                 if mode == .keyboard {
                     Toggle(L10n.Keyboard.liveTyping, isOn: $liveTyping)

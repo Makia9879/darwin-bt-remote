@@ -17,6 +17,8 @@ enum AppSettings {
 
     static let defaultPointerSensitivity = 5.0
     static let pointerSensitivityRange = 0.5 ... 10.0
+    /// stored tracking speed that means "no extra gain" on macOS
+    static let macPointerNeutral = 5.0
     static let defaultScrollSensitivity = 1.0
     static let scrollSensitivityRange = 0.5 ... 3.0
 }

@@ -85,7 +85,7 @@ final class Combo: ObservableObject, HIDProfile {
 }
 
 private let reportMap = Data([
-    // mouse: report ID 1 (52 bytes)
+    // mouse: report ID 1 (62 bytes)
     0x05, 0x01, // Usage Page (Generic Desktop)
     0x09, 0x02, // Usage (Mouse)
     0xA1, 0x01, // Collection (Application)
@@ -110,6 +110,10 @@ private let reportMap = Data([
     0x95, 0x03, //     Report Count (3)
     0x15, 0x81, //     Logical Min (-127)
     0x25, 0x7F, //     Logical Max (127)
+    0x81, 0x06, //     Input (Data,Var,Rel)
+    0x05, 0x0C, //     Usage Page (Consumer)
+    0x0A, 0x38, 0x02, //     Usage (AC Pan)
+    0x95, 0x01, //     Report Count (1)
     0x81, 0x06, //     Input (Data,Var,Rel)
     0xC0, //   End Collection
     0xC0, // End Collection
