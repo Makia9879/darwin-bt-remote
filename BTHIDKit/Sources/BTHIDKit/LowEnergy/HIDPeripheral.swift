@@ -33,6 +33,7 @@ public final class HIDPeripheral: NSObject, ObservableObject {
     private var batteryServiceObj: CBMutableService?
     private var deviceInfoServiceObj: CBMutableService?
     private var hidServiceObj: CBMutableService?
+    private var advertisingTimeout: Task<Void, Never>?
     private var isHIDServiceAllowed = false
     private var isReadyToSendNotification = true
 
@@ -75,6 +76,8 @@ public final class HIDPeripheral: NSObject, ObservableObject {
     }
 
     public func stop() {
+        advertisingTimeout?.cancel()
+        advertisingTimeout = nil
         isHIDServiceAllowed = false
         pManager?.stopAdvertising()
         isAdvertising = false
@@ -88,7 +91,7 @@ public final class HIDPeripheral: NSObject, ObservableObject {
 
     private func _resetForRestart() {
         profile.disconnect()
-        pManager?.stopAdvertising()
+        stop()
         pManager = nil
         isAdvertising = false
         isHIDServiceAdded = false
@@ -328,7 +331,7 @@ public final class HIDPeripheral: NSObject, ObservableObject {
     }
 
     private func startAdvertisingNow() {
-        guard let pManager, !isAdvertising else { return }
+        guard let pManager, isHIDServiceAllowed, !isAdvertising else { return }
         pManager.startAdvertising([
             CBAdvertisementDataLocalNameKey: localName,
             // hidService stays first
@@ -411,17 +414,20 @@ public final class HIDPeripheral: NSObject, ObservableObject {
 
 extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        guard peripheral === pManager else { return }
         state = peripheral.state
         _trace("CB state -> \(peripheral.state.rawValue)")
         if peripheral.state == .poweredOn, isHIDServiceAllowed, !isHIDServiceAdded {
             installServices()
         }
         if peripheral.state != .poweredOn {
+            advertisingTimeout?.cancel()
             isAdvertising = false
         }
     }
 
     public func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+        guard peripheral === pManager else { return }
         if let error {
             log.error("didAddService(\(service.uuid)) error: \(error.localizedDescription, privacy: .public)")
             lastError = error.localizedDescription
@@ -444,12 +450,26 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     }
 
     public func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+        guard peripheral === pManager else { return }
+        guard isHIDServiceAllowed else {
+            if peripheral.isAdvertising { peripheral.stopAdvertising() }
+            return
+        }
         if let error {
             isAdvertising = false
             lastError = error.localizedDescription
             log.error("startAdvertising error: \(error.localizedDescription, privacy: .public)")
         } else {
+            guard !isAdvertising, peripheral.isAdvertising else { return }
             isAdvertising = true
+            let stored = UserDefaults.standard.integer(forKey: HIDSettings.advertisingDurationKey)
+            let seconds = HIDSettings.advertisingDurationRange.contains(stored) ? stored : HIDSettings.defaultAdvertisingDuration
+            advertisingTimeout?.cancel()
+            advertisingTimeout = Task { [weak self] in
+                do { try await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000) }
+                catch { return }
+                self?.stop()
+            }
             _trace("advertising as \(localName)")
         }
     }

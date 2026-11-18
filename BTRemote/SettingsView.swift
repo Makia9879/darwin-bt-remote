@@ -11,9 +11,7 @@ struct SettingsView: View {
     @AppStorage(HIDSettings.developerModeKey) private var developerMode = false
     @AppStorage(HIDSettings.forceServiceChangedKey) private var forceServiceChanged = true
     @AppStorage(AppSettings.hasSeenWelcomeKey) private var hasSeenWelcome = false
-    #if os(iOS)
-        @AppStorage(AppSettings.autoAdvertiseKey) private var autoAdvertise = true
-    #endif
+    @AppStorage(AppSettings.autoAdvertiseKey) private var autoAdvertise = false
 
     var body: some View {
         #if os(macOS)
@@ -45,10 +43,12 @@ struct SettingsView: View {
                 #endif
                 sensitivityRow(L10n.Settings.scrollSpeed, value: $scrollSensitivity, range: AppSettings.scrollSensitivityRange)
             }
-            #if os(iOS)
-                Section(header: Text(L10n.Settings.connection), footer: Text(L10n.Settings.autoAdvertiseHint)) {
-                    Toggle(L10n.Settings.autoAdvertise, isOn: $autoAdvertise)
-                }
+            Section(header: Text(L10n.Settings.connection), footer: Text(L10n.Settings.autoAdvertiseHint)) {
+                Toggle(L10n.Settings.autoAdvertise, isOn: $autoAdvertise)
+                AdvertisingDurationRow()
+            }
+            #if os(macOS)
+                Section { CaptureShortcutRow() } header: { Text(L10n.DirectInput.section) }
             #endif
             Section(footer: Text(L10n.Settings.forceServiceChangedHint)) {
                 Toggle(L10n.Settings.forceServiceChanged, isOn: $forceServiceChanged)
@@ -81,6 +81,9 @@ struct SettingsView: View {
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
+        #if os(macOS)
+            CaptureHotKey.shared.reset()
+        #endif
         hasSeenWelcome = false
     }
 
@@ -121,6 +124,47 @@ struct SettingsView: View {
             }
             Slider(value: value, in: range, step: 0.1)
         }
+    }
+}
+
+struct AdvertisingDurationRow: View {
+    @AppStorage(HIDSettings.advertisingDurationKey) private var seconds = HIDSettings.defaultAdvertisingDuration
+
+    @State private var draft = ""
+    @FocusState private var editing: Bool
+
+    private var validSeconds: Int? {
+        guard let value = Int(draft), HIDSettings.advertisingDurationRange.contains(value) else { return nil }
+        return value
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Advertising duration")
+                Spacer()
+                TextField("Seconds", text: $draft)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 72)
+                    .accessibilityLabel(Text("Advertising duration in seconds"))
+                    .focused($editing)
+                    .onSubmit { editing = false }
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+                Text("s").foregroundColor(.secondary)
+            }
+            if editing, validSeconds == nil, !draft.isEmpty {
+                Text("Enter a whole number from 1 to 3600.").font(.caption).foregroundColor(.red)
+            }
+        }
+        .onAppear { draft = String(seconds) }
+        .onChange(of: draft) { _ in
+            if editing, let validSeconds { seconds = validSeconds }
+        }
+        .onChange(of: seconds) { if !editing { draft = String($0) } }
+        .onChange(of: editing) { if !$0 { draft = String(seconds) } }
     }
 }
 

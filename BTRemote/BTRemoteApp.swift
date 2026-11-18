@@ -7,13 +7,12 @@ enum Transport: String {
 
 @main
 struct BTRemoteApp: App {
-    #if os(iOS)
-        @StateObject private var lowEnergy = HIDPeripheral(profile: Combo())
-        @StateObject private var central = HIDCentral()
-        @AppStorage(AppSettings.autoAdvertiseKey) private var autoAdvertise = true
-    #else
-        @StateObject private var lowEnergy = HIDPeripheral(profile: Combo())
-        @StateObject private var central = HIDCentral()
+    @AppStorage(AppSettings.autoAdvertiseKey) private var autoAdvertise = false
+    @State private var didLaunch = false
+    @StateObject private var lowEnergy = HIDPeripheral(profile: Combo())
+    @StateObject private var central = HIDCentral()
+    #if os(macOS)
+        @StateObject private var directInput = DirectInputController()
         @StateObject private var classic = HIDClassicDevice(profile: Combo())
         @AppStorage(AppSettings.transportKey) private var transport = Transport.lowEnergy
     #endif
@@ -41,6 +40,8 @@ struct BTRemoteApp: App {
                     .environmentObject(deviceNames)
                     .environment(\.hid, hid)
                     .onAppear {
+                        guard !didLaunch else { return }
+                        didLaunch = true
                         central.start()
                         if autoAdvertise { lowEnergy.start() }
                     }
@@ -49,21 +50,31 @@ struct BTRemoteApp: App {
                     .environmentObject(lowEnergy)
                     .environmentObject(central)
                     .environmentObject(classic)
+                    .environmentObject(directInput)
                     .environmentObject(deviceNames)
                     .environment(\.hid, hid)
-                    .onAppear { _start() }
+                    .onAppear {
+                        guard !didLaunch else { return }
+                        didLaunch = true
+                        CaptureHotKey.shared.beginCapture = {
+                            guard !directInput.isCapturing else { return }
+                            if hid.isConnected { directInput.start(hid) }
+                            else { directInput.showNoConnection() }
+                        }
+                        _start(advertise: autoAdvertise)
+                    }
                     .onChange(of: transport) { _ in _switch() }
             #endif
         }
     }
 
     #if os(macOS)
-        private func _start() {
+        private func _start(advertise: Bool) {
             switch transport {
             case .classic:
                 classic.start()
             case .lowEnergy:
-                lowEnergy.start()
+                if advertise { lowEnergy.start() }
                 central.start()
             }
         }
@@ -71,7 +82,7 @@ struct BTRemoteApp: App {
         private func _switch() {
             lowEnergy.stop()
             classic.stop()
-            _start()
+            _start(advertise: false)
         }
     #endif
 }

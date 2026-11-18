@@ -1415,7 +1415,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Advertise as a Bluetooth device automatically when the app opens."
+            "value": "The launch setting applies to Bluetooth Low Energy. Duration changes apply the next time advertising starts."
           }
         }
       }

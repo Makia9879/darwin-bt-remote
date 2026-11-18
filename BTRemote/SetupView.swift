@@ -38,7 +38,6 @@ struct SetupView: View {
                     .formStyle(.grouped)
                     .navigationTitle(L10n.App.title)
             }
-            .onDisappear { directInput.stop() }
             .onChange(of: hid.isActive) { isActive in
                 if !isActive { directInput.stop() }
             }
@@ -137,7 +136,7 @@ struct SetupView: View {
                 #endif
             } else {
                 advertisedNameRow
-                row(L10n.Status.bluetooth, Text(lowEnergy.state.localizedLabel))
+                row(L10n.Status.bluetooth, Text(bluetoothState.localizedLabel))
                 row(L10n.Status.advertising, Text(lowEnergy.isAdvertising ? L10n.Value.yes : L10n.Value.no))
                 if developerMode {
                     row(L10n.Status.hidService, Text(lowEnergy.isHIDServiceAdded ? L10n.Status.hidServiceAdded : L10n.Value.none))
@@ -186,6 +185,7 @@ struct SetupView: View {
                     Label(L10n.Action.startAdvertising, systemImage: "antenna.radiowaves.left.and.right")
                 }
             }
+            AdvertisingDurationRow()
             NavigationLink {
                 DeviceListView()
             } label: {
@@ -236,8 +236,13 @@ struct SetupView: View {
         }
     }
 
+    private var bluetoothState: CBManagerState {
+        // Before the first advertising session only the central manager is running.
+        lowEnergy.state == .unknown ? central.state : lowEnergy.state
+    }
+
     private func _startAdvertising() {
-        if lowEnergy.state == .poweredOn {
+        if bluetoothState == .poweredOn || bluetoothState == .unknown {
             lowEnergy.start()
             return
         }

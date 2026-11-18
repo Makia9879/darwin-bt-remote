@@ -5,7 +5,11 @@ struct ContentView: View {
     @State private var tab = Tab.setup
 
     @Environment(\.hid) private var hid
-    @StateObject private var directInput = DirectInputController()
+    #if os(macOS)
+        @EnvironmentObject private var directInput: DirectInputController
+    #else
+        @StateObject private var directInput = DirectInputController()
+    #endif
     @Environment(\.openURL) private var openURL
     @AppStorage(AppSettings.hasSeenWelcomeKey) private var hasSeenWelcome = false
     @State private var showWelcome = false
@@ -31,8 +35,8 @@ struct ContentView: View {
                 .tabItem { Label(L10n.Tab.settings, systemImage: "slider.horizontal.3") }
                 .tag(Tab.settings)
         }
-        .environmentObject(directInput)
         #if os(iOS)
+            .environmentObject(directInput)
             .background(PointerLockHost(locked: directInput.isCapturing))
         #endif
             .onChange(of: hid.isConnected) { connected in
@@ -127,6 +131,7 @@ struct ContentView: View {
                 .environmentObject(HIDCentral())
                 .environmentObject(DeviceNameStore())
                 .environmentObject(HIDClassicDevice(profile: Combo()))
+                .environmentObject(DirectInputController())
         #endif
     }
 #endif

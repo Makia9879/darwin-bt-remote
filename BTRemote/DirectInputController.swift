@@ -15,6 +15,10 @@
         private var pressedKeys: Set<Keycode> = []
         private var pressedMouseButtons: MouseButtons = []
         private var modifiers: KeyboardModifiers = []
+        private var releaseKey: UInt32?
+        private var releasePairArmed = false
+        private var session = 0
+        private var switchShortcut: CaptureShortcut?
         private var cursorHidden = false
         private var scrollWheel = ScrollWheelAccumulator()
 
@@ -44,6 +48,7 @@
 
             guard AccessibilityPermission.isTrusted else {
                 needsAccessibility = true
+                showStatusMessage(String(localized: "Enable Accessibility to control the remote device."))
                 clearHandlers()
                 onRelease()
                 return
@@ -83,12 +88,28 @@
                 return
             }
 
-            eventTap = tap
-            runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-            if let runLoopSource {
-                CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+            guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+                CFMachPortInvalidate(tap)
+                lastError = L10n.DirectInput.captureFailedString
+                clearHandlers()
+                onRelease()
+                return
             }
+            eventTap = tap
+            runLoopSource = source
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
             CGEvent.tapEnable(tap: tap, enable: true)
+            // Quartz can clear unauthorized bits and still return a working mouse-only tap.
+            guard CGEvent.tapIsEnabled(tap: tap), Self.hasKeyboardFilter() else {
+                stop()
+                lastError = String(localized: "Keyboard capture unavailable. Check Accessibility and Input Monitoring in System Settings.")
+                showStatusMessage(lastError ?? L10n.DirectInput.captureFailedString)
+                onRelease()
+                return
+            }
+            let hotKey = CaptureHotKey.shared
+            switchShortcut = hotKey.available ? hotKey.shortcut : nil
+            hotKey.suspendForCapture()
             CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
             NSCursor.hide()
             cursorHidden = true
@@ -96,21 +117,39 @@
             showStatusItem()
         }
 
+        private static func hasKeyboardFilter() -> Bool {
+            var count: UInt32 = 0
+            guard CGGetEventTapList(0, nil, &count) == .success, count > 0 else { return false }
+            var taps = Array(repeating: CGEventTapInformation(), count: Int(count))
+            guard CGGetEventTapList(count, &taps, &count) == .success else { return false }
+            let required = [CGEventType.keyDown, .keyUp, .flagsChanged, .mouseMoved]
+                .reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
+            return taps.contains {
+                $0.tappingProcess == getpid() && $0.enabled && $0.options == .defaultTap &&
+                    $0.tapPoint == .cgSessionEventTap && $0.eventsOfInterest & required == required
+            }
+        }
+
         func stop() {
+            session &+= 1
+            switchShortcut = nil
+            releasePairArmed = false
+            releaseKey = nil
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: false)
             }
             if let runLoopSource {
                 CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
             }
+            if let eventTap { CFMachPortInvalidate(eventTap) }
             eventTap = nil
             runLoopSource = nil
 
             if cursorHidden {
                 NSCursor.unhide()
                 cursorHidden = false
+                CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
             }
-            CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
 
             pressedKeys.removeAll()
             pressedMouseButtons = []
@@ -120,6 +159,7 @@
             sendMouse?(.zero)
             clearHandlers()
             hideStatusItem()
+            if isCapturing { CaptureHotKey.shared.resumeLocalShortcut() }
             isCapturing = false
         }
 
@@ -131,6 +171,21 @@
             sendKeyboard = nil
             sendMouse = nil
             onRelease = nil
+        }
+
+        func showNoConnection() {
+            showStatusMessage(String(localized: "No device connected"))
+        }
+
+        private func showStatusMessage(_ message: String) {
+            hideStatusItem()
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            item.button?.title = message
+            statusItem = item
+            Task { [weak self, weak item] in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if let self, let item, statusItem === item { hideStatusItem() }
+            }
         }
 
         /// shown while capturing since cursor is hidden
@@ -158,12 +213,6 @@
         }
 
         private func handle(_ event: DirectInputEvent) {
-            if event.releaseShortcutPressed {
-                onRelease?()
-                stop()
-                return
-            }
-
             modifiers = event.modifiers
 
             switch event.kind {
@@ -200,20 +249,64 @@
             guard type != .tapDisabledByTimeout, type != .tapDisabledByUserInput else {
                 if let userInfo {
                     let controller = Unmanaged<DirectInputController>.fromOpaque(userInfo).takeUnretainedValue()
-                    Task { @MainActor in
-                        controller.eventTap.map { CGEvent.tapEnable(tap: $0, enable: true) }
+                    MainActor.assumeIsolated {
+                        guard controller.isCapturing, let tap = controller.eventTap else { return }
+                        if type == .tapDisabledByTimeout {
+                            CGEvent.tapEnable(tap: tap, enable: true)
+                            if CGEvent.tapIsEnabled(tap: tap) { return }
+                        }
+                        controller.stop()
+                        let message = String(localized: "Keyboard capture stopped. Control is back on this Mac.")
+                        controller.lastError = message
+                        controller.showStatusMessage(message)
                     }
                 }
                 return nil
             }
 
-            guard let userInfo, let event = DirectInputEvent(type: type, event: cgEvent) else {
-                return nil
-            }
-
+            guard let userInfo else { return nil }
             let controller = Unmanaged<DirectInputController>.fromOpaque(userInfo).takeUnretainedValue()
-            Task { @MainActor in
-                controller.handle(event)
+            // The tap is installed on the main run loop. Consume the toggle before HID translation.
+            let input = DirectInputEvent(type: type, event: cgEvent)
+            let keyboard = type == .keyDown || type == .keyUp
+            let code = keyboard ? UInt32(cgEvent.getIntegerValueField(.keyboardEventKeycode)) : 0
+            let flags = keyboard ? CaptureShortcut.mask(NSEvent.ModifierFlags(rawValue: UInt(cgEvent.flags.rawValue))) : 0
+            let repeatPress = keyboard && cgEvent.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            // Never wait for Bluetooth I/O or status-item updates inside the event tap.
+            // macOS can disable a slow tap, letting subsequent shortcuts reach the foreground app.
+            // This callback is on the main run loop; only snapshot the session here.
+            let session = MainActor.assumeIsolated { controller.session }
+            DispatchQueue.main.async {
+                guard controller.isCapturing, controller.session == session else { return }
+                // A standalone Ctrl+Option gesture ends on modifier-up. A third key
+                // cancels the gesture, so Ctrl+Option+letter remains a remote chord.
+                let pair: KeyboardModifiers = [.leftCtrl, .leftAlt]
+                if type == .flagsChanged, let input {
+                    if controller.releasePairArmed, input.modifiers.isStrictSubset(of: pair) {
+                        controller.onRelease?()
+                        controller.stop()
+                        return
+                    }
+                    controller.releasePairArmed = input.modifiers == pair &&
+                        controller.modifiers.isStrictSubset(of: pair) && controller.pressedKeys.isEmpty
+                } else if keyboard || type == .leftMouseDown || type == .rightMouseDown || type == .scrollWheel {
+                    controller.releasePairArmed = false
+                }
+                if keyboard {
+                    if type == .keyDown, let shortcut = controller.switchShortcut, code == shortcut.code,
+                       !repeatPress, flags == shortcut.modifiers {
+                        controller.releaseKey = code
+                        return
+                    }
+                    if controller.releaseKey == code {
+                        if type == .keyUp {
+                            controller.onRelease?()
+                            controller.stop()
+                        }
+                        return
+                    }
+                }
+                if let input { controller.handle(input) }
             }
             return nil
         }
@@ -231,12 +324,10 @@
 
         let kind: Kind
         let modifiers: KeyboardModifiers
-        let releaseShortcutPressed: Bool
 
         init?(type: CGEventType, event: CGEvent) {
             let flags = event.flags
             modifiers = KeyboardModifiers(eventFlags: flags)
-            releaseShortcutPressed = flags.contains(.maskControl) && flags.contains(.maskAlternate)
 
             switch type {
             case .keyDown:
